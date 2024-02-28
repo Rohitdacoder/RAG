@@ -14,6 +14,8 @@ The RAG Information Extraction System is a Python-based project designed to retr
 
 ### 3. Transformers Models
    - Employed for text summarization and question answering tasks. The system utilizes pretrained models like BERT and MiniLM for these purposes.
+### 4. TensorFlow 
+   - TensorFlow is usually used for training huge models from tons of data but no one can ignore the emerging market of smartphones and the need to make our future “Artificially Intelligent”
 
 ## Usage
 
