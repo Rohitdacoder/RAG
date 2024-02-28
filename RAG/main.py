@@ -4,6 +4,7 @@ import pickle
 import pandas as pd
 import re
 import sys
+import os
 
 
 from reportlab.lib import colors
@@ -19,6 +20,9 @@ GCS = GoogleCustomSearch(
     api_key='AIzaSyDpsYxahm-USx131yjLGctwFzvufj7Yee8', cx="94086cd10dad34239")
 
 PC = PineconeDB(api_key='1bad4ac6-a29a-4dfd-9dd6-b8a5803a7901')
+def reset_pinecone_conn():
+    global PC
+    PC = PineconeDB(api_key='1bad4ac6-a29a-4dfd-9dd6-b8a5803a7901')
 
 TFUtils = TransformersUtils(
     model_id='bert-base-uncased', SentenceTransformer_id='multi-qa-MiniLM-L6-cos-v1')
@@ -29,7 +33,6 @@ def get_scraped_data(link):
     response = requests.get(link)
     if response.status_code != 200:
         return ""
-    print(response.status_code)
     soup = BeautifulSoup(response.content, 'html.parser')
     paragraphs = soup.find_all("p")
     paragraph_texts = [re.sub(r'\[.*?\]', '', p.get_text(separator=' ', strip=False))
@@ -146,28 +149,40 @@ def export_pdf(data, filename='Output.pdf'):
 
 # Main function
 def main():
+    os.system('cls')
     # Define your search queries
-    query = "Covid 19"
+    
+    query = input("Enter a query to perform RAG: ")
 
     global PC
-    index_name = 'coronavirus'
+    index_name = str(''.join(re.findall(r'[a-zA-Z]', query)).lower())
+
+    print(f"Searching information on {query}, Please wait!")
 
     if not index_name in PC.PCVectorDB.list_indexes().names():
-        # PC.delete_index('transformers')
+        for idx in PC.PCVectorDB.list_indexes().names():
+            PC.delete_index(idx)
+
         vectorIndex = PC(index_name=index_name)
 
-        web_links = GCS(query, link_limit=4)
+        web_links = GCS(query, link_limit=5)
         scraped_data = scrape_data(web_links)
 
+        print(f"Inserting data into the vector database for simmilarity search! (Efficient Search)!")
         vectorIndex = PC.insert_into_vectorDB(
             scraped_data=scraped_data, PCVectorDB_index=vectorIndex, vectorisor_fun=TFUtils.vectorise)
-    else:
-        vectorIndex = PC(index_name=index_name)
 
-    retrived_context = retrive_context("What was Covid 19 ?", vectorIndex, top_k=10)
-    print(retrived_context)
+    reset_pinecone_conn()
+    vectorIndex = PC(index_name=index_name)
+
+    r_query = input("Input a query to search data from vector database: ")
+    retrived_context = retrive_context(r_query, vectorIndex, top_k=50)
     # Storing as combined PDF file.
-    export_pdf(retrived_context, filename=f'{query}.pdf')
+
+    res = input("Data retrived! Do you want to export to PDF ?    Y/N ?")
+    if res.lower() == 'y':
+        export_pdf(retrived_context, filename=f'{query}.pdf')
+        print("PDF exported successfully!")
 
     # summarized = []
     # for doc in retrived_context:
